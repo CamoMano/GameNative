@@ -56,6 +56,7 @@ import com.winlator.core.WineStartMenuCreator
 import com.winlator.core.WineThemeManager
 import com.winlator.core.WineUtils
 import com.winlator.core.envvars.EnvVars
+import com.winlator.inputcontrols.ControllerManager
 import com.winlator.inputcontrols.ControlsProfile
 import com.winlator.inputcontrols.ExternalController
 import com.winlator.inputcontrols.InputControlsManager
@@ -211,6 +212,7 @@ fun XServerScreen(
                                 val profiles = PluviaApp.inputControlsManager?.getProfiles(false) ?: listOf()
                                 if (profiles.isNotEmpty()) {
                                     showInputControls(profiles[2])
+                                    xServerView!!.getxServer().winHandler
                                 }
                             }
                             areControlsVisible = !areControlsVisible
@@ -632,6 +634,14 @@ private fun showInputControls(profile: ControlsProfile) {
     PluviaApp.touchpadView?.setPointerButtonRightEnabled(false)
 
     PluviaApp.inputControlsView?.invalidate()
+    if (profile.isVirtualGamepad()) {
+        val controllerManager: ControllerManager = ControllerManager.getInstance()
+        controllerManager.setSlotEnabled(0, true)
+        controllerManager.unassignSlot(0)
+        if (PluviaApp.xServerView!!.getxServer().winHandler != null) {
+            PluviaApp.xServerView!!.getxServer().winHandler.refreshControllerMappings()
+        }
+    }
 }
 
 private fun hideInputControls() {
@@ -642,6 +652,13 @@ private fun hideInputControls() {
     PluviaApp.touchpadView?.setSensitivity(1.0f)
     PluviaApp.touchpadView?.setPointerButtonLeftEnabled(true)
     PluviaApp.touchpadView?.setPointerButtonRightEnabled(true)
+    val hiddenProfile: ControlsProfile? = PluviaApp.inputControlsView?.getProfile()
+    if (hiddenProfile != null && hiddenProfile.isVirtualGamepad()) {
+        val controllerManager = ControllerManager.getInstance()
+        if (controllerManager.getAssignedDeviceForSlot(0) == null) {
+            controllerManager.setSlotEnabled(0, false)
+        }
+    }
     PluviaApp.touchpadView?.isEnabled()?.let {
         if (!it) {
             PluviaApp.touchpadView?.setEnabled(true)
@@ -1131,7 +1148,7 @@ private fun unpackExecutableFile(
 
         if ((File(imageFs.getGlibc64Dir(), "libandroid-sysvshm.so")).exists() ||
             (File(imageFs.getGlibc32Dir(), "libandroid-sysvshm.so")).exists()
-        ) shellCommandEnvVars.put("LD_PRELOAD", "libredirect.so libandroid-sysvshm.so")
+        ) shellCommandEnvVars.put("LD_PRELOAD", "libevshim.so libredirect.so libandroid-sysvshm.so")
         if (!shellCommandEnvVars.has("WINEESYNC")) shellCommandEnvVars.put("WINEESYNC", "1")
         shellCommandEnvVars.put("WINEESYNC_WINLATOR", "1")
         val rootDir: File = imageFs.getRootDir()

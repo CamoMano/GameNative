@@ -36,6 +36,7 @@ public class ExternalController {
     private String id;
     private String name;
     private int deviceId = -1;
+    private byte triggerType = 1;
     private final ArrayList<ExternalControllerBinding> controllerBindings = new ArrayList<>();
     public final GamepadState state = new GamepadState();
     private boolean processTriggerButtonOnMotionEvent = true;
@@ -54,6 +55,14 @@ public class ExternalController {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public byte getTriggerType() {
+        return this.triggerType;
+    }
+
+    public void setTriggerType(byte mode) {
+        this.triggerType = mode;
     }
 
     public int getDeviceId() {
@@ -177,14 +186,58 @@ public class ExternalController {
     }
 
     private void processTriggerButton(MotionEvent event) {
-        this.state.setPressed(IDX_BUTTON_L2, event.getAxisValue(MotionEvent.AXIS_LTRIGGER) == 1.0f || event.getAxisValue(MotionEvent.AXIS_BRAKE) == 1.0f);
-        this.state.setPressed(IDX_BUTTON_R2, event.getAxisValue(MotionEvent.AXIS_RTRIGGER) == 1.0f || event.getAxisValue(MotionEvent.AXIS_GAS) == 1.0f);
+        float l = event.getAxisValue(event.getAxisValue(MotionEvent.AXIS_LTRIGGER) == 0.0f ? MotionEvent.AXIS_BRAKE : MotionEvent.AXIS_LTRIGGER);
+        float r = event.getAxisValue(event.getAxisValue(MotionEvent.AXIS_RTRIGGER) == 0.0f ? MotionEvent.AXIS_GAS : MotionEvent.AXIS_RTRIGGER);
+        this.state.triggerL = l;
+        this.state.triggerR = r;
+        this.state.setPressed(IDX_BUTTON_L2, l == 1.0f);
+        this.state.setPressed(IDX_BUTTON_R2, r == 1.0f);
+    }
+
+    public boolean isXboxController() {
+        InputDevice device = InputDevice.getDevice(getDeviceId());
+        if (device == null) {
+            return false;
+        }
+        int vendorId = device.getVendorId();
+        return vendorId == 1118;
+    }
+
+    private void processXboxTriggerButton(MotionEvent event) {
+        float l;
+        float r;
+        if (event.getAxisValue(MotionEvent.AXIS_LTRIGGER) == 0.0f) {
+            l = event.getAxisValue(MotionEvent.AXIS_BRAKE);
+        } else {
+            l = event.getAxisValue(MotionEvent.AXIS_LTRIGGER);
+        }
+        if (event.getAxisValue(MotionEvent.AXIS_RTRIGGER) == 0.0f) {
+            r = event.getAxisValue(MotionEvent.AXIS_GAS);
+        } else {
+            r = event.getAxisValue(MotionEvent.AXIS_RTRIGGER);
+        }
+        if (l > 0.0f) {
+            this.state.triggerL = 1.0f;
+            this.state.setPressed(IDX_BUTTON_L2, true);
+        } else {
+            this.state.triggerL = 0.0f;
+            this.state.setPressed(IDX_BUTTON_L2, false);
+        }
+        if (r > 0.0f) {
+            this.state.triggerR = 1.0f;
+            this.state.setPressed(IDX_BUTTON_R2, true);
+        } else {
+            this.state.triggerR = 0.0f;
+            this.state.setPressed(IDX_BUTTON_R2, false);
+        }
     }
 
     public boolean updateStateFromMotionEvent(MotionEvent event) {
         if (isJoystickDevice(event)) {
-            if (this.processTriggerButtonOnMotionEvent) {
+            if (this.triggerType == 1) {
                 processTriggerButton(event);
+            } else if (this.triggerType == 0 && isXboxController()) {
+                processXboxTriggerButton(event);
             }
             int historySize = event.getHistorySize();
             for (int i = 0; i < historySize; i++) {
@@ -202,10 +255,21 @@ public class ExternalController {
         int keyCode = event.getKeyCode();
         int buttonIdx = getButtonIdxByKeyCode(keyCode);
         if (buttonIdx != -1) {
-            if (buttonIdx == IDX_BUTTON_L2 || buttonIdx == IDX_BUTTON_R2) {
-                this.processTriggerButtonOnMotionEvent = false;
+            if (buttonIdx == IDX_BUTTON_L2) {
+                if (this.triggerType != 0) {
+                    return true;
+                }
+                this.state.triggerL = pressed ? 1.0f : 0.0f;
+                this.state.setPressed(buttonIdx, pressed);
+            } else if (buttonIdx == IDX_BUTTON_R2) {
+                if (this.triggerType != 0) {
+                    return true;
+                }
+                this.state.triggerR = pressed ? 1.0f : 0.0f;
+                this.state.setPressed(buttonIdx, pressed);
+            } else {
+                this.state.setPressed(buttonIdx, pressed);
             }
-            this.state.setPressed(buttonIdx, pressed);
             return true;
         }
         switch (keyCode) {

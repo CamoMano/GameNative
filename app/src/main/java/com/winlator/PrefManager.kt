@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.util.concurrent.CompletableFuture
@@ -63,6 +64,15 @@ object PrefManager {
     @JvmStatic
     fun putBoolean(key: String, value: Boolean): CompletableFuture<Unit> {
         return setPref(booleanPreferencesKey(key), value)
+    }
+
+    @JvmStatic
+    fun getInt(key: String, defaultValue: Int): Int =
+        getPref(intPreferencesKey(key), defaultValue)
+
+    @JvmStatic
+    fun putInt(key: String, value: Int): CompletableFuture<Unit> {
+        return setPref(intPreferencesKey(key), value)
     }
 
     private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T = runBlocking {

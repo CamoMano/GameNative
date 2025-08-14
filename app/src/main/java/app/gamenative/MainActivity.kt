@@ -35,6 +35,7 @@ import app.gamenative.utils.IconDecoder
 import com.posthog.PostHog
 import com.skydoves.landscapist.coil.LocalCoilImageLoader
 import com.winlator.core.AppUtils
+import com.winlator.inputcontrols.ControllerManager
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.EnumSet
 import kotlin.math.abs
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(TRANSPARENT, TRANSPARENT)
         )
         super.onCreate(savedInstanceState)
+        ControllerManager.getInstance().init(applicationContext)
 
         // Prevent device from sleeping while app is open
         AppUtils.keepScreenOn(this)

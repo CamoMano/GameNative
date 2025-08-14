@@ -1,7 +1,11 @@
 package com.winlator.winhandler;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.SystemClock;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -9,8 +13,10 @@ import android.view.MotionEvent;
 
 // import com.winlator.XServerDisplayActivity;
 import com.winlator.core.StringUtils;
+import com.winlator.inputcontrols.ControllerManager;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.ExternalController;
+import com.winlator.inputcontrols.GamepadState;
 import com.winlator.inputcontrols.TouchMouse;
 import com.winlator.math.XForm;
 import com.winlator.widget.InputControlsView;
@@ -19,7 +25,10 @@ import com.winlator.xserver.Pointer;
 import com.winlator.xserver.XKeycode;
 import com.winlator.xserver.XServer;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.lang.reflect.Array;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -28,13 +37,19 @@ import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 
+import com.winlator.PrefManager;
+import kotlin.UShort;
 import timber.log.Timber;
 
 public class WinHandler {
@@ -42,23 +57,64 @@ public class WinHandler {
     private static final short CLIENT_PORT = 7946;
     private final ArrayDeque<Runnable> actions;
     private ExternalController currentController;
+    private MappedByteBuffer gamepadBuffer;
+    private int gyroTriggerButton;
     private byte dinputMapperType;
     private final List<Integer> gamepadClients;
     private boolean initReceived;
+    private GamepadState lastVirtualState;
     private InetAddress localhost;
     private OnGetProcessInfoListener onGetProcessInfoListener;
     private PreferredInputApi preferredInputApi;
     private final ByteBuffer receiveData;
     private final DatagramPacket receivePacket;
     private boolean running;
+    private final MappedByteBuffer[] extraGamepadBuffers = new MappedByteBuffer[3];
+    private final ExternalController[] extraControllers = new ExternalController[3];
+    private boolean xinputDisabled = false;
+    private byte triggerType;
     private final ByteBuffer sendData;
     private final DatagramPacket sendPacket;
+    private Thread rumblePollerThread;
     private DatagramSocket socket;
     private final ArrayList<Integer> xinputProcesses;
     private final XServer xServer;
     private final XServerView xServerView;
 
     private InputControlsView inputControlsView;
+    private boolean xinputDisabledInitialized = false;
+    private final Set<String> ignoredGroups = new HashSet();
+    private final Set<Integer> ignoredDeviceIds = new HashSet();
+    private boolean isShowingAssignDialog = false;
+    private boolean gyroEnabled = false;
+    private boolean isToggleMode = false;
+    private boolean isGyroActive = false;
+    private boolean processGyroWithLeftTrigger = false;
+    private float gyroSensitivityX = 0.35f;
+    private float gyroSensitivityY = 0.25f;
+    private float smoothingFactor = 0.45f;
+    private boolean invertGyroX = true;
+    private boolean invertGyroY = false;
+    private float gyroDeadzone = 0.01f;
+    private float smoothGyroX = 0.0f;
+    private float smoothGyroY = 0.0f;
+    private float gyroX = 0.0f;
+    private float gyroY = 0.0f;
+    private float lastSentGX = 0.0f;
+    private float lastSentGY = 0.0f;
+    private volatile boolean hasVirtualState = false;
+    private boolean gyroToLeftStick = false;
+    private boolean lastVirtualActivatorPressed = false;
+    private final short[] lastLow = new short[4];
+    private final short[] lastHigh = new short[4];
+    private final boolean[][] turboEnabled = (boolean[][]) Array.newInstance((Class<?>) Boolean.TYPE, 4, 15);
+    private final boolean[] includeTriggers = new boolean[4];
+    private final long[] lastTurboTick = new long[4];
+    private volatile boolean turboPhaseOn = true;
+    private volatile long turboLastFlipMs = 0;
+    private volatile boolean anyTurboEnabled = false;
+    private boolean virtualExclusiveP1 = true;
+    private final ControllerManager controllerManager = ControllerManager.getInstance();
 
     // Add method to set InputControlsView
     public void setInputControlsView(InputControlsView view) {
@@ -273,6 +329,29 @@ public class WinHandler {
         }
     }
 
+    private void loadTurboPrefsForAllSlots() {
+        boolean any = false;
+        this.anyTurboEnabled = any;
+    }
+
+    private static boolean isSystemNavKey(int code) {
+        switch (code) {
+            case 3:
+            case 4:
+            case 24:
+            case 25:
+            case 82:
+            case 85:
+            case 87:
+            case 88:
+            case 164:
+            case 187:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     private void startSendThread() {
         Executors.newSingleThreadExecutor().execute(() -> {
             while (this.running) {
@@ -302,11 +381,15 @@ public class WinHandler {
     }
 
     private void handleRequest(byte requestCode, final int port) throws IOException {
+        Log.d("WinHandler", "handleRequest");
         boolean enabled = true;
         ExternalController externalController;
         switch (requestCode) {
             case RequestCodes.INIT:
                 this.initReceived = true;
+                this.triggerType = (byte) PrefManager.getInt("trigger_type", 1);
+                this.virtualExclusiveP1 = PrefManager.getBoolean("virtual_exclusive_p1", true);
+                refreshControllerMappings();
                 synchronized (this.actions) {
                     this.actions.notify();
                 }
@@ -329,6 +412,9 @@ public class WinHandler {
                 this.onGetProcessInfoListener.onGetProcessInfo(index, numProcesses, new ProcessInfo(pid, name, memoryUsage, affinityMask, wow64Process));
                 return;
             case RequestCodes.GET_GAMEPAD:
+                if (this.xinputDisabled) {
+                    return;
+                }
                 boolean isXInput = this.receiveData.get() == 1;
                 boolean notify = this.receiveData.get() == 1;
                 final ControlsProfile profile = inputControlsView.getProfile();
@@ -336,6 +422,9 @@ public class WinHandler {
                 int processId = this.receiveData.getInt();
                 if (!useVirtualGamepad && ((externalController = this.currentController) == null || !externalController.isConnected())) {
                     this.currentController = ExternalController.getController(0);
+                    if (this.currentController != null) {
+                        this.currentController.setTriggerType(this.triggerType);
+                    }
                 }
                 boolean enabled2 = this.currentController != null || useVirtualGamepad;
                 if (enabled2) {
@@ -414,6 +503,9 @@ public class WinHandler {
                 });
                 return;
             case RequestCodes.GET_GAMEPAD_STATE:
+                if (this.xinputDisabled) {
+                    return;
+                }
                 final int gamepadId = this.receiveData.getInt();
                 final ControlsProfile profile2 = inputControlsView.getProfile();
                 final boolean useVirtualGamepad2 = inputControlsView != null && profile2 != null && profile2.isVirtualGamepad();
@@ -454,14 +546,43 @@ public class WinHandler {
         }
     }
 
-    public void  start() {
+    public void start() {
         try {
             this.localhost = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
+            File p1 = new File("/data/data/app.gamenative/files/imagefs/tmp/gamepad.mem");
+            p1.getParentFile().mkdirs();
+            RandomAccessFile raf = new RandomAccessFile(p1, "rw");
+            Log.d("WinHandler", "Memory file exists: " + p1.exists() +
+            ", size: " + p1.length() + ", readable: " + p1.canRead() +
+            ", writable: " + p1.canWrite());
             try {
-                this.localhost = InetAddress.getByName("127.0.0.1");
-            } catch (UnknownHostException e2) {
+                raf.setLength(64L);
+                this.gamepadBuffer = raf.getChannel().map(FileChannel.MapMode.READ_WRITE, 0L, 64L);
+                this.gamepadBuffer.order(ByteOrder.LITTLE_ENDIAN);
+                Log.i("WinHandler", "Mapped SHM for Player 1");
+                raf.close();
+                for (int i = 0; i < this.extraGamepadBuffers.length; i++) {
+                    String path = "/data/data/app.gamenative/files/imagefs/tmp/gamepad" + (i + 1) + ".mem";
+                    File f = new File(path);
+                    raf = new RandomAccessFile(f, "rw");
+                    try {
+                        raf.setLength(64L);
+                        this.extraGamepadBuffers[i] = raf.getChannel().map(FileChannel.MapMode.READ_WRITE, 0L, 64L);
+                        this.extraGamepadBuffers[i].order(ByteOrder.LITTLE_ENDIAN);
+                        Log.i("WinHandler", "Mapped SHM for Player " + (i + 2));
+                        raf.close();
+                    } finally {
+                    }
+                }
+            } finally {
+                try {
+                    raf.close();
+                } catch (Throwable th) {
+                    th.addSuppressed(th);
+                }
             }
+        } catch (IOException e) {
+            Log.e("WinHandler", "FATAL: Failed to create memory-mapped file(s).", e);
         }
         this.running = true;
         startSendThread();
@@ -482,9 +603,11 @@ public class WinHandler {
             } catch (IOException e) {
             }
         });
+//        startRumblePoller();
     }
 
     public void sendGamepadState() {
+        Log.d("WinHandler", "send gamepad state");
         if (!this.initReceived || this.gamepadClients.isEmpty()) {
             return;
         }
@@ -511,20 +634,195 @@ public class WinHandler {
         }
     }
 
+    public void pokeSharedMemory() {
+        Log.d("WinHandler", "pokeSharedMemory");
+        if (this.gamepadBuffer == null) {
+            return;
+        }
+        ControlsProfile profile = inputControlsView.getProfile();
+        boolean useVirtual = profile != null && profile.isVirtualGamepad();
+        if (useVirtual) {
+            GamepadState s = profile.getGamepadState();
+            if (s != null) {
+                this.lastVirtualState = s;
+                this.hasVirtualState = true;
+                writeStateToMappedBuffer(s, this.gamepadBuffer, true, 0);
+                return;
+            }
+            return;
+        }
+        ensureP1Controller();
+        if (this.currentController != null) {
+            writeStateToMappedBuffer(this.currentController.state, this.gamepadBuffer, true, 0);
+        } else if (this.hasVirtualState && this.lastVirtualState != null) {
+            writeStateToMappedBuffer(this.lastVirtualState, this.gamepadBuffer, true, 0);
+        }
+    }
+
+    private void writeStateToMappedBuffer(GamepadState gamepadState, MappedByteBuffer mappedByteBuffer, boolean z, int i) {
+        if (mappedByteBuffer == null || gamepadState == null) {
+            Log.w("WinHandler", "Cannot write to buffer - buffer or state is null");
+            return;
+        }
+
+        Log.d("WinHandler", "Writing gamepad state: LX=" + gamepadState.thumbLX +
+          ", LY=" + gamepadState.thumbLY + ", buttons=" + gamepadState.buttons);
+        mappedByteBuffer.clear();
+        float fClamp = gamepadState.thumbLX;
+        float fClamp2 = gamepadState.thumbLY;
+        float fClamp3 = gamepadState.thumbRX;
+        float fClamp4 = gamepadState.thumbRY;
+        mappedByteBuffer.putShort((short) (fClamp * 32767.0f));
+        mappedByteBuffer.putShort((short) (fClamp2 * 32767.0f));
+        mappedByteBuffer.putShort((short) (fClamp3 * 32767.0f));
+        mappedByteBuffer.putShort((short) (32767.0f * fClamp4));
+        float fMax = Math.max(0.0f, Math.min(1.0f, gamepadState.triggerL));
+        float fMax2 = Math.max(0.0f, Math.min(1.0f, gamepadState.triggerR));
+        byte[] bArr = {
+                (byte) (gamepadState.isPressed(0) ? 1 : 0),
+                (byte) (gamepadState.isPressed(1) ? 1 : 0),
+                (byte) (gamepadState.isPressed(2) ? 1 : 0),
+                (byte) (gamepadState.isPressed(3) ? 1 : 0),
+                (byte) (gamepadState.isPressed(6) ? 1 : 0),
+                0,
+                (byte) (gamepadState.isPressed(7) ? 1 : 0),
+                (byte) (gamepadState.isPressed(8) ? 1 : 0),
+                (byte) (gamepadState.isPressed(9) ? 1 : 0),
+                (byte) (gamepadState.isPressed(4) ? 1 : 0),
+                (byte) (gamepadState.isPressed(5) ? 1 : 0),
+                gamepadState.dpad[0] ? (byte) 1 : (byte) 0,
+                gamepadState.dpad[2] ? (byte) 1 : (byte) 0,
+                gamepadState.dpad[3] ? (byte) 1 : (byte) 0,
+                gamepadState.dpad[1] ? (byte) 1 : (byte) 0};
+        applyTurboMask(i, bArr);
+        if (!this.turboPhaseOn && i >= 0 && i < this.includeTriggers.length && this.includeTriggers[i]) {
+            fMax = 0.0f;
+            fMax2 = 0.0f;
+        }
+        float fSqrt = (float) Math.sqrt(fMax);
+        float fSqrt2 = (float) Math.sqrt(fMax2);
+        int iRound = Math.round(fSqrt * 65534.0f) - 32767;
+        int iRound2 = Math.round(65534.0f * fSqrt2) - 32767;
+        mappedByteBuffer.putShort((short) iRound);
+        mappedByteBuffer.putShort((short) iRound2);
+        mappedByteBuffer.put(bArr);
+        mappedByteBuffer.put((byte) 0);
+
+        Log.d("WinHandler", "Successfully wrote to memory buffer");
+    }
+
+    public void refreshControllerMappings() {
+        Log.d("WinHandler", "Refreshing controller assignments from settings...");
+        this.currentController = null;
+        for (int i = 0; i < this.extraControllers.length; i++) {
+            this.extraControllers[i] = null;
+        }
+        this.controllerManager.scanForDevices();
+
+        // Add debug logging
+        Log.d("WinHandler", "Detected devices: " + this.controllerManager.getDetectedDevices().size());
+        for (InputDevice device : this.controllerManager.getDetectedDevices()) {
+            Log.d("WinHandler", "  Device: " + device.getName() + " (ID: " + device.getId() + ")");
+        }
+
+        if (this.virtualExclusiveP1 && isVirtualActive()) {
+            this.currentController = null;
+        } else {
+            InputDevice p1Device = this.controllerManager.getAssignedDeviceForSlot(0);
+            Log.d("WinHandler", "Device assigned to slot 0: " + (p1Device != null ? p1Device.getName() : "null"));
+
+            // Auto-assign first detected controller to Player 1 if none assigned
+            if (p1Device == null && !this.controllerManager.getDetectedDevices().isEmpty()) {
+                InputDevice firstController = this.controllerManager.getDetectedDevices().get(0);
+                Log.i("WinHandler", "Auto-assigning first controller to Player 1: " + firstController.getName());
+                this.controllerManager.assignDeviceToSlot(0, firstController);
+                p1Device = firstController;
+            }
+
+            if (p1Device != null) {
+                this.currentController = ExternalController.getController(p1Device.getId());
+                if (this.currentController != null) {
+                    this.currentController.setTriggerType(this.triggerType);
+                    Log.i("WinHandler", "Initialized Player 1 with: " + p1Device.getName());
+                } else {
+                    Log.w("WinHandler", "Failed to create ExternalController for device: " + p1Device.getName());
+                }
+            } else {
+                Log.w("WinHandler", "No device assigned to Player 1 slot");
+            }
+        }
+        for (int i2 = 0; i2 < this.extraControllers.length; i2++) {
+            InputDevice dev = this.controllerManager.getAssignedDeviceForSlot(i2 + 1);
+            if (dev != null) {
+                this.extraControllers[i2] = ExternalController.getController(dev.getId());
+                Log.i("WinHandler", "Initialized Player " + (i2 + 2) + " with: " + dev.getName());
+            }
+        }
+        loadTurboPrefsForAllSlots();
+    }
+
+    public void ensureP1Controller() {
+        Log.d("WinHandler", "ensureP1Controller");
+        ControlsProfile profile = inputControlsView.getProfile();
+        if (profile != null && profile.isVirtualGamepad()) {
+            Log.d("WinHandler", "Using virtual gamepad");
+            this.currentController = null;
+            return;
+        }
+        if (this.currentController != null) {
+            Log.d("WinHandler", "Controller already exists: " + this.currentController.getName());
+            return;
+        }
+        if (this.currentController == null) {
+            Log.d("WinHandler", "Got controller: " + this.currentController.getName());
+            this.currentController = ExternalController.getController(0);
+        }
+    }
+
+    private void applyTurboMask(int slot, byte[] sdlButtons) {
+        if (slot < 0 || slot >= 4 || this.turboPhaseOn) {
+            return;
+        }
+        boolean[] mask = this.turboEnabled[slot];
+        for (int i = 0; i < 15 && i < sdlButtons.length; i++) {
+            if (mask[i] && sdlButtons[i] != 0) {
+                sdlButtons[i] = 0;
+            }
+        }
+    }
+
     public boolean onGenericMotionEvent(MotionEvent event) {
+        Log.d("WinHandler", "Java received motion event - device: " + event.getDeviceId() +
+          ", source: " + event.getSource() + ", action: " + event.getAction());
         boolean handled = false;
         ExternalController externalController = this.currentController;
+        Log.d("WinHandler", "externalController = " + externalController);
+//        Log.d("WinHandler", "externalController.getDeviceId() == event.getDeviceId()? = " + (externalController.getDeviceId() == event.getDeviceId()));
+//        Log.d("WinHandler", "this.currentController.updateStateFromMotionEvent(event) ? " + (this.currentController.updateStateFromMotionEvent(event)));
         if (externalController != null && externalController.getDeviceId() == event.getDeviceId() && (handled = this.currentController.updateStateFromMotionEvent(event))) {
             if (handled) {
+                Log.d("WinHandler", "Writing to shared memory after motion event");
                 sendGamepadState();
+                writeStateToMappedBuffer(this.currentController.state, this.gamepadBuffer, true, 0);
             }
+            else {
+                Log.d("WinHandler", "Motion event not handled");
+            }
+        }
+        else {
+            Log.d("WinHandler", "no controller, ignoring motion event");
         }
         return handled;
     }
 
     public boolean onKeyEvent(KeyEvent event) {
+        Log.d("WinHandler", "Java received key event - device: " + event.getDeviceId() +
+                ", keyCode: " + event.getKeyCode() + ", action: " + event.getAction());
         boolean handled = false;
         ExternalController externalController = this.currentController;
+        Log.d("WinHandler", "externalController = " + externalController);
+//        Log.d("WinHandler", "externalController.getDeviceId() == event.getDeviceId()? = " + (externalController.getDeviceId() == event.getDeviceId()));
+//        Log.d("WinHandler", "event.getRepeatCount() == 0 ? " + (event.getRepeatCount() == 0));
         if (externalController != null && externalController.getDeviceId() == event.getDeviceId() && event.getRepeatCount() == 0) {
             int action = event.getAction();
             if (action == KeyEvent.ACTION_DOWN) {
@@ -534,7 +832,14 @@ public class WinHandler {
             }
             if (handled) {
                 sendGamepadState();
+                writeStateToMappedBuffer(this.currentController.state, this.gamepadBuffer, true, 0);
             }
+            else {
+                Log.d("WinHandler", "Key event not handled");
+            }
+        }
+        else {
+            Log.d("WinHandler", "no controller, ignoring key event");
         }
         return handled;
     }
@@ -549,5 +854,10 @@ public class WinHandler {
 
     public ExternalController getCurrentController() {
         return this.currentController;
+    }
+
+    private boolean isVirtualActive() {
+        ControlsProfile p = inputControlsView.getProfile();
+        return p != null && p.isVirtualGamepad();
     }
 }
