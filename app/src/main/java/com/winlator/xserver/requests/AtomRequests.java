@@ -30,4 +30,21 @@ public abstract class AtomRequests {
             outputStream.writePad(20);
         }
     }
+
+    public static void getAtomName(XClient client, XInputStream inputStream, XOutputStream outputStream) throws XRequestError, IOException {
+        int id = inputStream.readInt();
+        if (id < 0) {
+            throw new BadAtom(id);
+        }
+        String name = Atom.getName(id);
+        short length = (short) name.length();
+        try (XStreamLock lock = outputStream.lock()){
+            outputStream.writeByte((byte) 1);
+            outputStream.writeByte((byte) 0);
+            outputStream.writeShort(client.getSequenceNumber());
+            outputStream.writeInt((length + 22) / 4);
+            outputStream.writeString8(name);
+            outputStream.writePad(22);
+        }
+    }
 }

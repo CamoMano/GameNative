@@ -2,6 +2,7 @@ package com.winlator.xserver.requests;
 
 import com.winlator.xconnector.XInputStream;
 import com.winlator.xconnector.XOutputStream;
+import com.winlator.xconnector.XStreamLock;
 import com.winlator.xserver.Cursor;
 import com.winlator.xserver.Pixmap;
 import com.winlator.xserver.XClient;
@@ -9,6 +10,8 @@ import com.winlator.xserver.errors.BadIdChoice;
 import com.winlator.xserver.errors.BadMatch;
 import com.winlator.xserver.errors.BadPixmap;
 import com.winlator.xserver.errors.XRequestError;
+
+import java.io.IOException;
 
 public abstract class CursorRequests {
     public static void createCursor(XClient client, XInputStream inputStream, XOutputStream outputStream) throws XRequestError {
@@ -46,5 +49,35 @@ public abstract class CursorRequests {
 
     public static void freeCursor(XClient client, XInputStream inputStream, XOutputStream outputStream) throws XRequestError {
         client.xServer.cursorManager.freeCursor(inputStream.readInt());
+    }
+
+    public static void getPointerMaping(XClient client, XInputStream inputStream, XOutputStream outputStream) throws XRequestError, IOException {
+        XStreamLock lock = outputStream.lock();
+        try {
+            byte[] buttonsMap = {1, 2, 3};
+            byte n = (byte) buttonsMap.length;
+            int padLen = 3 & (-n);
+            outputStream.writeByte((byte) 1);
+            outputStream.writeByte(n);
+            outputStream.writeShort(client.getSequenceNumber());
+            outputStream.writeInt((n + padLen) / 4);
+            outputStream.writePad(24);
+            for (byte b : buttonsMap) {
+                outputStream.writeByte(b);
+            }
+            outputStream.writePad(padLen);
+            if (lock != null) {
+                lock.close();
+            }
+        } catch (Throwable th) {
+            if (lock != null) {
+                try {
+                    lock.close();
+                } catch (Throwable th2) {
+                    th.addSuppressed(th2);
+                }
+            }
+            throw th;
+        }
     }
 }

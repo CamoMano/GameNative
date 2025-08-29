@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class XOutputStream {
     private static final byte[] ZERO = new byte[64];
-    private ByteBuffer buffer;
+    public ByteBuffer buffer;
     public final ClientSocket clientSocket;
     private final ReentrantLock lock = new ReentrantLock();
     private int ancillaryFd = -1;
@@ -117,6 +117,16 @@ public class XOutputStream {
             finally {
                 lock.unlock();
             }
+        }
+    }
+
+    public void writeSuccessReply(int sequenceNumber, int replyLength) throws IOException {
+        try (XStreamLock lock = lock()) {
+            writeByte((byte) 1);
+            writeByte((byte) 0);
+            writeShort((short) sequenceNumber);
+            writeInt(replyLength);
+            writePad(24);
         }
     }
 }

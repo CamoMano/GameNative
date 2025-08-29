@@ -1190,7 +1190,7 @@ private fun getWineStartCommand(
 
     Timber.tag("XServerScreen").d("appLaunchInfo is $appLaunchInfo")
     val args = if (bootToContainer || appLaunchInfo == null) {
-        "\"wfm.exe\""
+        "\"C:\\\\windows\\\\wfm.exe\""
     } else {
         // Check if we should launch through real Steam
         if (container.isLaunchRealSteam()) {

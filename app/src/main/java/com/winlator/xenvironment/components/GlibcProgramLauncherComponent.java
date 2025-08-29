@@ -4,6 +4,7 @@ import static com.winlator.core.ProcessHelper.splitCommand;
 
 import android.content.Context;
 import android.media.Image;
+import android.net.ConnectivityManager;
 import android.os.Process;
 import android.util.Log;
 
@@ -26,8 +27,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -211,7 +214,28 @@ public class GlibcProgramLauncherComponent extends GuestProgramLauncherComponent
         envVars.put("HOME", imageFs.home_path);
         envVars.put("USER", ImageFs.USER);
         envVars.put("TMPDIR", imageFs.getRootDir().getPath() + "/tmp");
+        envVars.put("XDG_DATA_DIRS", rootDir.getPath() + "/usr/share");
+        envVars.put("XDG_CONFIG_DIRS", rootDir.getPath() + "/usr/etc/xdg");
+        envVars.put("GST_PLUGIN_PATH", rootDir.getPath() + "/usr/lib/gstreamer-1.0");
+        envVars.put("VK_LAYER_PATH", rootDir.getPath() + "/usr/share/vulkan/implicit_layer.d:" + rootDir.getPath() + "/usr/share/vulkan/explicit_layer.d");
+        envVars.put("WINE_NO_DUPLICATE_EXPLORER", "1");
+
         envVars.put("DISPLAY", ":0");
+        envVars.put("WINE_DISABLE_FULLSCREEN_HACK", "1");
+        envVars.put("ENABLE_UTIL_LAYER", "1");
+        envVars.put("GST_PLUGIN_FEATURE_RANK", "ximagesink:3000");
+        envVars.put("ALSA_CONFIG_PATH", rootDir.getPath() + "/usr/share/alsa/alsa.conf:" + rootDir.getPath() + "/usr/etc/alsa/conf.d/android_aserver.conf");
+        envVars.put("ALSA_PLUGIN_DIR", rootDir.getPath() + "/usr/lib/alsa-lib");
+        envVars.put("OPENSSL_CONF", rootDir.getPath() + "/usr/etc/tls/openssl.cnf");
+        envVars.put("SSL_CERT_FILE", rootDir.getPath() + "/usr/etc/tls/cert.pem");
+        envVars.put("SSL_CERT_DIR", rootDir.getPath() + "/usr/etc/tls/certs");
+        envVars.put("WINE_X11FORCEGLX", "1");
+        envVars.put("WINE_GST_NO_GL", "1");
+        envVars.put("SteamGameId", "0");
+        envVars.put(
+                "XAUTHORITY",
+                "/data/user/0/app.gamenative/files/imagefs/home/xuser/.Xauthority"
+        );
 
         String winePath = wineProfile == null ? imageFs.getWinePath() + "/bin"
                 : ContentsManager.getSourceFile(context, wineProfile, wineProfile.wineBinPath).getAbsolutePath();
@@ -223,6 +247,17 @@ public class GlibcProgramLauncherComponent extends GuestProgramLauncherComponent
         envVars.put("BOX64_LD_LIBRARY_PATH", imageFs.getRootDir().getPath() + "/usr/lib/x86_64-linux-gnu");
         envVars.put("ANDROID_SYSVSHM_SERVER", imageFs.getRootDir().getPath() + UnixSocketConfig.SYSVSHM_SERVER_PATH);
         envVars.put("FONTCONFIG_PATH", imageFs.getRootDir().getPath() + "/usr/etc/fonts");
+
+        String primaryDNS = "8.8.4.4";
+        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
+        if (connectivityManager.getActiveNetwork() != null) {
+            ArrayList<InetAddress> dnsServers = new ArrayList<>(connectivityManager.getLinkProperties(connectivityManager.getActiveNetwork()).getDnsServers());
+            if (!dnsServers.isEmpty()) {
+                primaryDNS = dnsServers.get(0).toString().substring(1);
+            }
+        }
+        envVars.put("ANDROID_RESOLV_DNS", primaryDNS);
+        envVars.put("WINE_NEW_NDIS", "1");
 
         if ((new File(imageFs.getGlibc64Dir(), "libandroid-sysvshm.so")).exists() ||
                 (new File(imageFs.getGlibc32Dir(), "libandroid-sysvshm.so")).exists
