@@ -57,6 +57,7 @@ import app.gamenative.PrefManager
 import app.gamenative.utils.DeviceUtils
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.distinctUntilChanged
+import app.gamenative.data.GameSource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,8 +69,7 @@ internal fun LibraryListPane(
     onModalBottomSheet: (Boolean) -> Unit,
     onPageChange: (Int) -> Unit,
     onIsSearching: (Boolean) -> Unit,
-    onLogout: () -> Unit,
-    onNavigate: (Int) -> Unit,
+    onNavigate: (String) -> Unit,
     onSearchQuery: (String) -> Unit,
     onNavigateRoute: (String) -> Unit,
     onGoOnline: () -> Unit,
@@ -157,7 +157,6 @@ internal fun LibraryListPane(
                     ) {
                         AccountButton(
                             onNavigateRoute = onNavigateRoute,
-                            onLogout = onLogout,
                             onGoOnline = onGoOnline,
                             isOffline = isOffline,
                         )
@@ -268,7 +267,7 @@ private fun Preview_LibraryListPane() {
                     val item = fakeAppInfo(idx)
                     LibraryItem(
                         index = idx,
-                        appId = item.id,
+                        appId = "${GameSource.STEAM.name}_${item.id}",
                         name = item.name,
                         iconHash = item.iconHash,
                         isShared = idx % 2 == 0,
@@ -293,7 +292,6 @@ private fun Preview_LibraryListPane() {
                 onIsSearching = { },
                 onSearchQuery = { },
                 onNavigateRoute = { },
-                onLogout = { },
                 onNavigate = { },
                 onGoOnline = { },
             )
