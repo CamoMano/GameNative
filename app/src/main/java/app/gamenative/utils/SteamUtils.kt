@@ -310,7 +310,7 @@ object SteamUtils {
             val executablePath = SteamService.getInstalledExe(appId)
 
             // Convert to Wine path format
-            val container = ContainerUtils.getContainer(context, appId)
+            val container = ContainerUtils.getContainer(context, "STEAM_$appId")
             val drives = container.drives
             val driveIndex = drives.indexOf(appDirPath)
             val drive = if (driveIndex > 1) {

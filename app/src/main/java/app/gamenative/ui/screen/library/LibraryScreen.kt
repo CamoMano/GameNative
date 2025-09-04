@@ -93,7 +93,7 @@ private fun LibraryScreenContent(
     onGoOnline: () -> Unit,
     isOffline: Boolean = false,
 ) {
-    var selectedAppId by remember { mutableStateOf<Int?>(null) }
+    var selectedAppId by remember { mutableStateOf<String?>(null) }
 
     BackHandler(selectedAppId != null) { selectedAppId = null }
     val safePaddingModifier =
@@ -122,10 +122,19 @@ private fun LibraryScreenContent(
                 isOffline = isOffline,
             )
         } else {
+            // Find the LibraryItem from the state based on selectedAppId
+            val selectedLibraryItem = selectedAppId?.let { appId ->
+                state.appInfoList.find { it.appId == appId }
+            }
+            
             LibraryDetailPane(
-                appId = selectedAppId ?: SteamService.INVALID_APP_ID,
+                libraryItem = selectedLibraryItem,
                 onBack = { selectedAppId = null },
-                onClickPlay = { onClickPlay(selectedAppId!!, it) },
+                onClickPlay = { 
+                    selectedLibraryItem?.let { libraryItem ->
+                        onClickPlay(libraryItem.gameId, it) 
+                    }
+                },
             )
         }
     }
@@ -157,7 +166,7 @@ private fun Preview_LibraryScreenContent() {
                     val item = fakeAppInfo(idx)
                     LibraryItem(
                         index = idx,
-                        appId = item.id,
+                        appId = "STEAM_${item.id}",
                         name = item.name,
                         iconHash = item.iconHash,
                     )

@@ -174,7 +174,7 @@ class LibraryViewModel @Inject constructor(
                 .mapIndexed { idx, item ->
                     LibraryItem(
                         index = idx,
-                        appId = item.id,
+                        appId = "STEAM_${item.id}",
                         name = item.name,
                         iconHash = item.clientIconHash,
                         isShared = (PrefManager.steamUserAccountId != 0 && !item.ownerAccountId.contains(PrefManager.steamUserAccountId)),
