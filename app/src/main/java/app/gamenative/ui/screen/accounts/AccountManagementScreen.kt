@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.accounts
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import app.gamenative.ui.component.topbar.BackButton
+import app.gamenative.ui.theme.PluviaTheme
 import com.alorma.compose.settings.ui.SettingsGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.skydoves.landscapist.ImageOptions
@@ -221,9 +223,12 @@ fun AccountSection(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
+@Preview(device = "spec:width=1920px,height=1080px,dpi=440") // Odin2 Mini
 @Composable
 private fun AccountManagementScreenPreview() {
-    val navController = rememberNavController()
-    AccountManagementScreen(navController = navController)
+    PluviaTheme {
+        val navController = rememberNavController()
+        AccountManagementScreen(navController = navController)
+    }
 }
