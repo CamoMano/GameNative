@@ -10,12 +10,14 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import app.gamenative.ui.component.topbar.BackButton
 import com.alorma.compose.settings.ui.SettingsGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Brush
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
@@ -61,45 +63,6 @@ private fun AccountsGroup(
     }
 }
 
-@Composable
-private fun AccountInfoCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "Platform Information",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            Text(
-                text = "• You can use GameNative without logging into any accounts\n" +
-                      "• Steam login enables downloading and playing Steam games",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
 // Keep the existing AccountSection for backward compatibility
 @Composable
 fun AccountSection(
@@ -116,7 +79,7 @@ fun AccountSection(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
-    
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -137,7 +100,7 @@ fun AccountSection(
                     )
                 )
         )
-        
+
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -157,49 +120,49 @@ fun AccountSection(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = null,
                             modifier = Modifier.size(32.dp),
-                            tint = if (isLoggedIn) 
-                                MaterialTheme.colorScheme.onPrimaryContainer 
-                            else 
+                            tint = if (isLoggedIn)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
                                 MaterialTheme.colorScheme.onSurface
                         )
                     }
                 )
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (isLoggedIn) 
-                            MaterialTheme.colorScheme.onPrimaryContainer 
-                        else 
+                        color = if (isLoggedIn)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
                             MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     Text(
-                        text = if (isLoggedIn && username != null) 
-                            "Logged in as $username" 
-                        else 
+                        text = if (isLoggedIn && username != null)
+                            "Logged in as $username"
+                        else
                             description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (isLoggedIn) 
+                        color = if (isLoggedIn)
                             MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        else 
+                        else
                             MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 // Status indicator
                 Icon(
                     imageVector = if (isLoggedIn) Icons.Default.CheckCircle else Icons.Default.Circle,
                     contentDescription = if (isLoggedIn) "Connected" else "Not connected",
-                    tint = if (isLoggedIn) 
-                        MaterialTheme.colorScheme.primary 
-                    else 
+                    tint = if (isLoggedIn)
+                        MaterialTheme.colorScheme.primary
+                    else
                         MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }
-            
+
             // Error message
             if (error != null) {
                 Card(
@@ -216,7 +179,7 @@ fun AccountSection(
                     )
                 }
             }
-            
+
             // Action button
             if (isLoggedIn) {
                 OutlinedButton(
@@ -256,4 +219,11 @@ fun AccountSection(
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AccountManagementScreenPreview() {
+    val navController = rememberNavController()
+    AccountManagementScreen(navController = navController)
 }
