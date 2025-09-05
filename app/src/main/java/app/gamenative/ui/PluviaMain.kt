@@ -702,7 +702,14 @@ fun PluviaMain(
 
             /** Account Management **/
             composable(route = PluviaScreen.AccountManagement.route) {
-                AccountManagementScreen(navController = navController)
+                AccountManagementScreen(
+                    onNavigateRoute = {
+                        navController.navigate(it)
+                    },
+                    onBack = {
+                        navController.navigateUp()
+                    },
+                )
             }
             /** Library, Downloads, Friends **/
             /** Library, Downloads, Friends **/

@@ -16,20 +16,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import app.gamenative.ui.component.topbar.BackButton
 import app.gamenative.ui.theme.PluviaTheme
 import com.alorma.compose.settings.ui.SettingsGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountManagementScreen(
-    navController: NavController,
-    modifier: Modifier = Modifier
+    onNavigateRoute: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val snackBarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
@@ -40,7 +38,7 @@ fun AccountManagementScreen(
             CenterAlignedTopAppBar(
                 title = { Text(text = "Manage Accounts") },
                 navigationIcon = {
-                    BackButton(onClick = { navController.popBackStack() })
+                    BackButton(onClick = { onBack() })
                 },
             )
         },
@@ -52,17 +50,17 @@ fun AccountManagementScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState),
         ) {
-            AccountsGroup(navController = navController)
+            AccountsGroup(onNavigateRoute = onNavigateRoute)
         }
     }
 }
 
 @Composable
 private fun AccountsGroup(
-    navController: NavController
+    onNavigateRoute: (String) -> Unit,
 ) {
     SettingsGroup(title = { Text(text = "Accounts") }) {
-        SteamAccountSection(navController = navController)
+        SteamAccountSection(onNavigateRoute = onNavigateRoute)
         // Other account sections (GOG, Epic Games, etc.)
     }
 }
@@ -230,7 +228,9 @@ fun AccountSection(
 @Composable
 private fun AccountManagementScreenPreview() {
     PluviaTheme {
-        val navController = rememberNavController()
-        AccountManagementScreen(navController = navController)
+        AccountManagementScreen(
+            onNavigateRoute = {},
+            onBack = {},
+        )
     }
 }
