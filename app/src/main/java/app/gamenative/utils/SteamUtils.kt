@@ -10,6 +10,10 @@ import app.gamenative.service.SteamService
 import com.winlator.core.WineRegistryEditor
 import com.winlator.xenvironment.ImageFs
 import `in`.dragonbra.javasteam.util.HardwareUtils
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -25,8 +29,14 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
 import kotlin.io.path.name
 import timber.log.Timber
+import okhttp3.*
+import org.json.JSONObject
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 object SteamUtils {
+
+    private val http = OkHttpClient()
 
     private val sfd by lazy {
         SimpleDateFormat("MMM d - h:mm a", Locale.getDefault()).apply {
@@ -811,5 +821,52 @@ object SteamUtils {
                 )
             }
         }
+    }
+
+    fun fetchDirect3DMajor(appId: Int, callback: (Int) -> Unit) {
+        // Build a single Cargo query: SELECT API.direct3d_versions WHERE steam_appid="<appId>"
+        Timber.i("[DX Fetch] Starting fetchDirect3DMajor for appId=%d", appId)
+        val where = URLEncoder.encode("Infobox_game.Steam_AppID HOLDS \"$appId\"", "UTF-8")
+        val url =
+            "https://pcgamingwiki.com/w/api.php" +
+                    "?action=cargoquery" +
+                    "&tables=Infobox_game,AP" +
+                    "I&join_on=Infobox_game._pageID=API._pageID" +
+                    "&fields=API.Direct3D_versions" +
+                    "&where=$where" +
+                    "&format=json"
+
+        Timber.i("[DX Fetch] Starting fetchDirect3DMajor for query=%s", url)
+
+        http.newCall(Request.Builder().url(url).build()).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) = callback(-1)
+
+            override fun onResponse(call: Call, res: Response) {
+                res.use {
+                    val body = it.body?.string() ?: run { callback(-1); return }
+                    Timber.i("[DX Fetch] Raw fbody etchDirect3DMajor for body=%s", body)
+                    val arr = JSONObject(body)
+                        .optJSONArray("cargoquery") ?: run { callback(-1); return }
+
+                    // There should be at most one row; take the first.
+                    val raw = arr.optJSONObject(0)
+                        ?.optJSONObject("title")
+                        ?.optString("Direct3D versions")
+                        ?.trim() ?: ""
+
+                    Timber.i("[DX Fetch] Raw fetchDirect3DMajor for raw=%s", raw)
+
+                    // Extract highest DX major number present.
+                    val dx = Regex("\\b(9|10|11|12)\\b")
+                        .findAll(raw)
+                        .map { it.value.toInt() }
+                        .maxOrNull() ?: -1
+
+                    Timber.i("[DX Fetch] dx fetchDirect3DMajor is dx=%d", dx)
+
+                    callback(dx)
+                }
+            }
+        })
     }
 }

@@ -89,7 +89,7 @@ public class Container {
     // Disable external mouse input
     private boolean disableMouseInput = false;
     // Steam client type for selecting appropriate Box64 RC config: normal, light, ultralight
-    private String steamType = STEAM_TYPE_NORMAL;
+    private String steamType = DefaultVersion.STEAM_TYPE;
 
     // Emulate keyboard/mouse using controller: left stick=WASD, right stick=mouse
     private boolean emulateKeyboardMouse = false;
