@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -195,7 +197,7 @@ fun AccountSection(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Sign Out")
@@ -213,7 +215,7 @@ fun AccountSection(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Icon(Icons.Default.Login, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(if (isLoading) "Signing In..." else "Sign In")
