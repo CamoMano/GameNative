@@ -47,7 +47,6 @@ import app.gamenative.Constants
 import app.gamenative.MainActivity
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
-import app.gamenative.R
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.enums.AppTheme
