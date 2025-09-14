@@ -3,7 +3,6 @@ package app.gamenative.utils
 import android.content.Context
 import android.os.Build
 import app.gamenative.BuildConfig
-import app.gamenative.service.GameManagerService
 import app.gamenative.service.SteamService
 import com.winlator.container.Container
 import com.winlator.core.FileUtils
@@ -57,7 +56,8 @@ object GameFeedbackUtils {
             Timber.d("config string is: " + FileUtils.readString(container.getConfigFile()).replace("\\u0000", "").replace("\u0000", ""))
             Timber.d("configJson: $configJson")
             // Get the game name from container or use a fallback
-            val gameName = GameManagerService.createLibraryItemFromAppId(appId, context).name
+            val appInfo = SteamService.getAppInfoOf(appId.toInt())!!
+            val gameName = appInfo.name
             Timber.d("GameFeedbackUtils: Game name: $gameName")
 
             // Get device model

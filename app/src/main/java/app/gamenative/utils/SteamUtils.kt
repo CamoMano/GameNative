@@ -7,7 +7,6 @@ import app.gamenative.PrefManager
 import app.gamenative.data.DepotInfo
 import app.gamenative.data.GameSource
 import app.gamenative.enums.Marker
-import app.gamenative.service.GameManagerService
 import app.gamenative.service.SteamService
 import com.winlator.core.WineRegistryEditor
 import com.winlator.xenvironment.ImageFs
@@ -641,7 +640,7 @@ object SteamUtils {
         val accountName   = PrefManager.username
         val accountSteamId = SteamService.userSteamId?.convertToUInt64()?.toString() ?: "0"
         val language = runCatching {
-            val container = ContainerUtils.getOrCreateContainer(context, GameManagerService.getAppId(appId, GameSource.STEAM))
+            val container = ContainerUtils.getOrCreateContainer(context, "STEAM_$appId")
             (container.getExtra("language", null)
                 ?: container.javaClass.getMethod("getLanguage").invoke(container) as? String)
                 ?: "english"
