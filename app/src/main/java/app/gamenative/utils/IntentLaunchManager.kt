@@ -8,6 +8,7 @@ import com.winlator.container.ContainerData
 import com.winlator.core.DXVKHelper
 import org.json.JSONObject
 import timber.log.Timber
+import kotlin.Boolean
 
 /**
  * Handles external game launch intents with container configuration overrides.
@@ -178,7 +179,6 @@ object IntentLaunchManager {
 
         // Only include non-default values to avoid overriding existing container settings
         val config = ContainerData(
-            name = if (json.has("name")) json.getString("name") else "",
             screenSize = if (json.has("screenSize")) json.getString("screenSize") else Container.DEFAULT_SCREEN_SIZE,
             envVars = if (json.has("envVars")) json.getString("envVars") else Container.DEFAULT_ENV_VARS,
             graphicsDriver = if (json.has("graphicsDriver")) json.getString("graphicsDriver") else Container.DEFAULT_GRAPHICS_DRIVER,
@@ -191,7 +191,6 @@ object IntentLaunchManager {
             },
             audioDriver = if (json.has("audioDriver")) json.getString("audioDriver") else Container.DEFAULT_AUDIO_DRIVER,
             wincomponents = if (json.has("wincomponents")) json.getString("wincomponents") else Container.DEFAULT_WINCOMPONENTS,
-            drives = if (json.has("drives")) json.getString("drives") else Container.DEFAULT_DRIVES,
             execArgs = if (json.has("execArgs")) json.getString("execArgs") else "",
             executablePath = if (json.has("executablePath")) json.getString("executablePath") else "",
             installPath = if (json.has("installPath")) json.getString("installPath") else "",
@@ -227,6 +226,10 @@ object IntentLaunchManager {
             disableMouseInput = if (json.has("disableMouseInput")) json.getBoolean("disableMouseInput") else false,
             shaderBackend = if (json.has("shaderBackend")) json.getString("shaderBackend") else "glsl",
             useGLSL = if (json.has("useGLSL")) json.getString("useGLSL") else "enabled",
+            touchscreenMode = if (json.has("touchscreenMode")) json.getBoolean("touchscreenMode") else false,
+            language = if (json.has("language")) json.getString("language") else "english",
+            emulateKeyboardMouse = if (json.has("emulateKeyboardMouse")) json.getBoolean("emulateKeyboardMouse") else false,
+            controllerEmulationBindings = if (json.has("controllerEmulationBindings")) json.getString("controllerEmulationBindings") else "",
         )
 
         val validationIssues = validateContainerConfig(config)
