@@ -24,9 +24,9 @@
         <item>SD 8 Elite (SD 8 Elite)</item>
     </string-array>
     <string-array name="turnip_version_entries">
-        <item>25.1.0</item>
-        <item>25.2.0</item>
         <item>25.3.0</item>
+        <item>25.2.0</item>
+        <item>25.1.0</item>
         <item>25.0.0</item>
         <item>24.1.0</item>
     </string-array>
@@ -44,8 +44,8 @@
         <item>805</item>
     </string-array>
     <string-array name="sd8elite_version_entries">
-        <item>800.51</item>
         <item>2-842.6</item>
+        <item>800.51</item>
     </string-array>
     <string-array name="audio_driver_entries">
         <item>ALSA</item>
@@ -64,18 +64,18 @@
     </string-array>
     <string-array name="dxvk_version_entries">
         <item>2.6.1-gplasync</item>
-        <item>1.10.3</item>
-        <item>1.10.9-sarek</item>
-        <item>1.9.2</item>
-        <item>2.4.1</item>
         <item>2.4.1-gplasync</item>
+        <item>2.4.1</item>
+        <item>1.10.9-sarek</item>
         <item>async-1.10.3</item>
+        <item>1.10.3</item>
+        <item>1.9.2</item>
     </string-array>
     <string-array name="vkd3d_version_entries">
-        <item>2.6</item>
-        <item>2.12</item>
-        <item>2.13</item>
         <item>2.14.1</item>
+        <item>2.13</item>
+        <item>2.12</item>
+        <item>2.6</item>
     </string-array>
     <string-array name="dxvk_max_device_memory_entries">
         <item>0 (Default)</item>
